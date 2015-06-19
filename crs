@@ -39,15 +39,12 @@ esac
 s3cmd -c ~/s3cfg/work put -P "$FILEPATH" "s3://${BUCKET}/${UPLOAD_NAME}"
 PUBLIC_URL="http://${BUCKET}.${S3BASE}/${UPLOAD_NAME}"
 
-# get lzma.so url
-LZMAURL=$(wget -q -O - --header='Accept: application/json' "http://lzma.so/?new_url=http://${BUCKET}.${S3BASE}/${HASH}" | python -c 'import json as j, fileinput as f; print j.loads("".join(f.input()))["url"]')
-
-if [ x"$LZMAURL" == x"http://lzma.so/HRGA2W" ] ; then
-	# Failure, that's the shorturl for the empty file
-	notify-send -u low -t 500 "Error, empty screenshot file :("
-	exit 0
+LZMAURL=$(lzmafy "$PUBLIC_URL")
+if [ -z $LZMAURL ] ; then
+	echo "Problem shortening URL: $PUBLIC_URL"
+	exit 1
 fi
-#echo "public URL of the object is: $LZMAURL"
+echo $LZMAURL
 
 # chuck it in the clipboard
 echo -n "$LZMAURL" | xclip -selection clipboard
