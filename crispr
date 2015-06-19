@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# Barney Desmond <barneydesmond@gmail.com>, 2015
+#
+# SCRIPT TO TAKE A SCREENSHOT AND UPLOAD TO S3 AND LZMA.SOIFY THE URL AND
+# SHOVE IT IN THE CLIPBOARD
+#
+# REQUIRES scrot and xclip and s3cmd
+#
+# READS DESTINATION BUCKET NAME FROM ~/.crisprbucket
+#
+
+set -x
+
+hash scrot
+if [ $? -ne 0 ]; then
+	echo "We require import to run"
+	exit 1
+fi
+hash xclip
+if [ $? -ne 0 ]; then
+	echo "We require xclip to run"
+	exit 1
+fi
+
+hash s3cmd
+if [ $? -ne 0 ]; then
+	echo "We require s3cmd to run"
+	exit 1
+fi
+
+hash tempfile
+if [ $? -ne 0 ]; then
+	hash mktemp
+	if [ $? -ne 0 ]; then
+		echo "We require tempfile or mktemp to run"
+		exit 1
+	fi
+	TMPFILE=$(mktemp --tmpdir --suffix=.png)
+else
+	TMPFILE=$(tempfile -s .png)
+fi
+
+S3BASE="beta.anchortrove.com"
+BUCKET=`cat ~/.crisprbucket || echo crispr`
+FILENAME=`basename "${TMPFILE}"`
+
+
+# Take a screenshot. The window manager seems to be holding the keyboard,
+# which scrot has a problem with, hence the sleep.
+# http://code.google.com/p/xmonad/issues/detail?id=476
+sleep 0.2
+scrot -s "$TMPFILE"
+if [ $? -ne 0 ] ; then
+	notify-send -u low -t 500 "Error, screenshot failed :("
+	exit 0
+fi
+
+# upload to trove
+HASH=`sha1sum -b < ${TMPFILE} | cut -d ' ' -f1`
+echo "Hash is $HASH"
+s3cmd -c ~/s3cfg/work put -P --no-progress "$TMPFILE" "s3://${BUCKET}/${HASH}" > /dev/null 2>&1
+
+# TODO: some error checking and shit
+rm "${TMPFILE}"
+
+# get lzma.so url
+#LZMAURL=`curl -s "http://lzma.so/?new_url=http://${BUCKET}.${S3BASE}/${HASH}" | sed -rn '6s/<p>(.+)<\/p>/\1/p'`
+LZMAURL=$(wget -q -O - --header='Accept: application/json' "http://lzma.so/?new_url=http://${BUCKET}.${S3BASE}/${HASH}" | python -c 'import json as j, fileinput as f; print j.loads("".join(f.input()))["url"]')
+
+if [ x"$LZMAURL" == x"http://lzma.so/HRGA2W" ] ; then
+	# Failure, that's the shorturl for the empty file
+	notify-send -u low -t 500 "Error, empty screenshot file :("
+	exit 0
+fi
+
+# chuck it in the clipboard
+echo -n "$LZMAURL" | xclip -selection clipboard
+
+# tell the window manager too
+notify-send -u low -t 500 "$LZMAURL"
+

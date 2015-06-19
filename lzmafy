@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+# Barney Desmond <barneydesmond@gmail.com>, 2015
+#
+# LZMA.SO'IFY THE GIVEN URL
+# Relies on your shortener supporting text/plain output.
+#
+
+NEW_URL="$1"
+if [ -z "$NEW_URL" ] ; then
+	echo "You need to give me a URL"
+	exit 2
+fi
+
+LZMAURL=$(wget -q -O - --header='Accept: text/plain' "http://lzma.so/?new_url=${NEW_URL}")
+
+if [ x"$LZMAURL" == x"http://lzma.so/HRGA2W" ] ; then
+	# Fail silent with no output
+	#echo "Failure, that's the shorturl for the empty string O_o"
+	exit 1
+fi
+echo "$LZMAURL"

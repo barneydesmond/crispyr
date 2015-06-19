@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Barney Desmond <barneydesmond@gmail.com>, 2015
+#
+# SCRIPT TO:
+#   1. Take a lzma.so URL (http://lzma.so/ABCDEF)
+#   2. Fetch it
+#   3. Put it in /tmp as ABCDEF.png
+#
+# REQUIRES xclip and s3cmd
+#
+# READS DESTINATION BUCKET NAME FROM ~/.crisprbucket
+#
+
+
+LZMA_URL=$1
+# do sanity checking here
+LZMA_HASH=$(basename "$LZMA_URL")
+SAVE_PATH="/tmp/${LZMA_HASH}.png"
+wget -O "$SAVE_PATH" "$LZMA_URL"
+exit 0
+
+hash xclip
+if [ $? -ne 0 ]; then
+	echo "We require xclip to run"
+	exit 1
+fi
+
+# chuck it in the clipboard
+echo -n "$SAVE_PATH" | xclip -selection clipboard
+
+# tell the window manager too
+notify-send -u low -t 500 "$SAVE_PATH"
